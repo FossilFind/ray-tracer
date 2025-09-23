@@ -1,3 +1,6 @@
+os.execute("cmake -S lib/glfw -B lib/glfw/build")
+os.execute("cmake --build lib/glfw/build")
+
 workspace "ray-tacer"
 	configurations { "debug", "release" }
 
@@ -9,12 +12,20 @@ workspace "ray-tacer"
 		defines { "NDEBUG" }
 		optimize "On"
 
-project "main"
-	location "src"
-	kind "ConsoleApp"
-	language "C"
-	targetdir "bin/%{cfg.buildcfg}"
-	objdir "bin/%{cfg.buildcfg}/obj"
+	project "main"
+		location "src"
+		kind "ConsoleApp"
+		language "C"
+		targetdir "bin/%{cfg.buildcfg}"
+		objdir "bin/%{cfg.buildcfg}/obj"
 
-	includedirs { "src/include" }
-	files { "src/**.c", "src/include/**.h" }
+		links { "lib/glfw/build/src/glfw3" }
+
+		includedirs { "src/include", "lib/glad/include", "lib/glfw/include" }
+		files { "src/**.c", "src/include/**.h", "lib/glad/src/**.c", "lib/glad/include/**.h" }
+
+		filter "system:linux"
+			links { "GL" }
+
+		filter "system:windows"
+			links { "opengl" }

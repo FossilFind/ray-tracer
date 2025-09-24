@@ -19,7 +19,7 @@ workspace "ray-tacer"
 		targetdir "bin/%{cfg.buildcfg}"
 		objdir "bin/%{cfg.buildcfg}/obj"
 
-		links { "lib/glfw/build/src/glfw3" }
+		links { "lib/glfw/build/src/glfw3", "m" }
 
 		includedirs { "src/include", "lib/glad/include", "lib/glfw/include" }
 		files { "src/**.c", "src/include/**.h", "lib/glad/src/**.c", "lib/glad/include/**.h" }

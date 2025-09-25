@@ -208,6 +208,12 @@ int32_t main()
 	uint32_t vao;
 	createRenderQuad(&vao);
 
+	// Set triangle points
+	glUseProgram(computeProgram);
+	glUniform3f(glGetUniformLocation(computeProgram, "triPoint0"), 1.0f, -0.5f, 0.5f);
+	glUniform3f(glGetUniformLocation(computeProgram, "triPoint1"), 1.0f, -0.5f, -0.5f);
+	glUniform3f(glGetUniformLocation(computeProgram, "triPoint2"), 1.0f, 0.5f, -0.5f);
+
 	// Render loop
 	while(!glfwWindowShouldClose(window))
 	{

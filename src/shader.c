@@ -35,7 +35,7 @@ int32_t readFile(const char *fileName, char **buf, size_t *bufSize)
 		return -2;
 	}
 
-	*buf = malloc(sizeof(char) * (*bufSize + 1));
+	*buf = malloc(sizeof(char) * ((*bufSize) + 1));
 
 	// Return to front of file
 	if(fseek(fPtr, 0L, SEEK_SET) != 0)
@@ -45,7 +45,7 @@ int32_t readFile(const char *fileName, char **buf, size_t *bufSize)
 		return -2;
 	}
 
-	*bufSize = fread(*buf, sizeof(char), *bufSize + 1, fPtr);
+	*bufSize = fread(*buf, sizeof(char), *bufSize, fPtr);
 
 	if(ferror(fPtr) != 0)
 	{
@@ -53,6 +53,8 @@ int32_t readFile(const char *fileName, char **buf, size_t *bufSize)
 		free(*buf);
 		return -2;
 	}
+
+	(*buf)[(*bufSize)++] = '\0';
 
 	fclose(fPtr);
 
@@ -67,7 +69,10 @@ int32_t createComputeProgram(const char *shaderPath, uint32_t *programID, char *
 {
 	int32_t error;
 	if(compileError != NULL)
+	{
 		*compileError = malloc(sizeof(char) * INFO_LOG_LENGTH * 2);
+		**compileError = '\0';
+	}
 
 	// Read file
 	char *buf;
@@ -131,7 +136,10 @@ int32_t createRenderProgram(const char *vertexPath, const char *fragmentPath, ui
 {
 	int32_t error;
 	if(compileError != NULL)
+	{
 		*compileError = malloc(sizeof(char) * INFO_LOG_LENGTH * 3);
+		**compileError = '\0';
+	}
 
 	// Read files
 	char *vertBuf;

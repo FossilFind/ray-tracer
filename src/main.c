@@ -1,18 +1,26 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include <math.h>
 
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
 
 #include "shader.h"
+#include "camera.h"
 
-#define WINDOW_WIDTH 800
-#define WINDOW_HEIGHT 600
+#define PI 3.14159265359
+
+#define WINDOW_WIDTH 1920
+#define WINDOW_HEIGHT 1080
 
 #define COMPUTE_PATH "src/shaders/pathtrace.glsl"
 #define VERTEX_PATH "src/shaders/vertex.glsl"
 #define FRAGMENT_PATH "src/shaders/fragment.glsl"
+
+#define LOOK_SPEED 0.01
+#define ZOOM_SPEED 0.05
+#define MOVE_SPEED 0.1
 
 int32_t glfwSetup(GLFWwindow **window)
 {
@@ -31,6 +39,7 @@ int32_t glfwSetup(GLFWwindow **window)
 		return -2;
 	}
 	glfwMakeContextCurrent(*window);
+	glfwSetInputMode(*window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
 
 int32_t glSetup()
@@ -90,23 +99,88 @@ void callbackFrambufferSize(GLFWwindow *window, int32_t width, int32_t height)
 	createScreenTexture(width, height);
 }
 
+void callbackCursorPos(GLFWwindow *window, double xPos, double yPos)
+{
+	struct Camera *camera = (struct Camera *) glfwGetWindowUserPointer(window);
+
+	camera->yaw += xPos * LOOK_SPEED;
+	camera->pitch += yPos * LOOK_SPEED;
+
+	if(camera->pitch > PI / 2)
+		camera->pitch = PI / 2;
+
+	if(camera->pitch < -PI / 2)
+		camera->pitch = -PI / 2;
+
+	glfwSetCursorPos(window, 0, 0);
+}
+
+void callbackScroll(GLFWwindow *window, double xOffset, double yOffset)
+{
+	struct Camera *camera = (struct Camera *) glfwGetWindowUserPointer(window);
+
+	camera->fov += yOffset * ZOOM_SPEED;
+}
+
 void setCallbacks(GLFWwindow *window)
 {
 	glfwSetFramebufferSizeCallback(window, callbackFrambufferSize);
+	glfwSetCursorPosCallback(window, callbackCursorPos);
+	glfwSetScrollCallback(window, callbackScroll);
 }
 
 //----Callbacks----
 
-void processInput(GLFWwindow *window)
+void processInput(GLFWwindow *window, struct Camera * const camera)
 {
 	if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, GL_TRUE);
+
+	double fowardMovement = 0;
+
+	if(glfwGetKey(window, GLFW_KEY_W))
+		fowardMovement += MOVE_SPEED;
+	
+	if(glfwGetKey(window, GLFW_KEY_S))
+		fowardMovement -= MOVE_SPEED;
+
+	double camDirX = -cos(-camera->pitch) * cos(-camera->yaw);
+	double camDirY = -cos(-camera->pitch) * sin(-camera->yaw);
+	double camDirLen = sqrt(camDirX * camDirX + camDirY * camDirY);
+	camDirX /= camDirLen;
+	camDirY /= camDirLen;
+
+	double deltaX = camDirX * fowardMovement;
+	double deltaY = camDirY * fowardMovement;
+
+	double sideMovement = 0;
+
+	if(glfwGetKey(window, GLFW_KEY_A))
+		sideMovement += MOVE_SPEED;
+
+	if(glfwGetKey(window, GLFW_KEY_D))
+		sideMovement -= MOVE_SPEED;
+	
+	double sideDirX = -camDirY;
+	double sideDirY = camDirX;
+
+	deltaX += sideDirX * sideMovement;
+	deltaY += sideDirY * sideMovement;
+
+	camera->posX += deltaX;
+	camera->posY += deltaY;
 }
 
-void render(GLFWwindow *window, const uint32_t computeProgram, const uint32_t renderProgram, uint32_t vao)
+void render(GLFWwindow *window, const uint32_t computeProgram, const uint32_t renderProgram, uint32_t vao, const struct Camera cam)
 {
 	glUseProgram(computeProgram);
-	glDispatchCompute(WINDOW_WIDTH, WINDOW_HEIGHT, 1);
+
+	glUniform1f(glGetUniformLocation(computeProgram, "camFOV"), cam.fov);
+	glUniform1f(glGetUniformLocation(computeProgram, "camYaw"), cam.yaw);
+	glUniform1f(glGetUniformLocation(computeProgram, "camPitch"), cam.pitch);
+	glUniform3f(glGetUniformLocation(computeProgram, "camPos"), cam.posX, cam.posY, cam.posZ);
+
+	glDispatchCompute(cam.width, cam.height, 1);
 
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
@@ -208,18 +282,25 @@ int32_t main()
 	uint32_t vao;
 	createRenderQuad(&vao);
 
-	// Set triangle points
+	// Set shader uniforms
 	glUseProgram(computeProgram);
+
+	glUniform1f(glGetUniformLocation(computeProgram, "camFOV"), PI / 2);
+	glUniform3f(glGetUniformLocation(computeProgram, "camDir"), -1.0f, 0.0f, 0.0f);
+
 	glUniform3f(glGetUniformLocation(computeProgram, "triPoint0"), 1.0f, -0.5f, 0.5f);
 	glUniform3f(glGetUniformLocation(computeProgram, "triPoint1"), 1.0f, -0.5f, -0.5f);
 	glUniform3f(glGetUniformLocation(computeProgram, "triPoint2"), 1.0f, 0.5f, -0.5f);
 
+	struct Camera cam = {WINDOW_WIDTH, WINDOW_HEIGHT, PI / 2, 0, 0, 0, 0, 0};
+	glfwSetWindowUserPointer(window, &cam);
+
 	// Render loop
 	while(!glfwWindowShouldClose(window))
 	{
-		processInput(window);
+		processInput(window, &cam);
 
-		render(window, computeProgram, renderProgram, vao);
+		render(window, computeProgram, renderProgram, vao, cam);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();

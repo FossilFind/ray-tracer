@@ -8,6 +8,7 @@
 
 #include "shader.h"
 #include "camera.h"
+#include "model.h"
 
 #define PI 3.14159265359
 
@@ -103,8 +104,8 @@ void callbackCursorPos(GLFWwindow *window, double xPos, double yPos)
 {
 	struct Camera *camera = (struct Camera *) glfwGetWindowUserPointer(window);
 
-	camera->yaw += xPos * LOOK_SPEED;
-	camera->pitch += yPos * LOOK_SPEED;
+	camera->yaw -= xPos * LOOK_SPEED;
+	camera->pitch -= yPos * LOOK_SPEED;
 
 	if(camera->pitch > PI / 2)
 		camera->pitch = PI / 2;
@@ -144,8 +145,8 @@ void processInput(GLFWwindow *window, struct Camera * const camera)
 	if(glfwGetKey(window, GLFW_KEY_S))
 		fowardMovement -= MOVE_SPEED;
 
-	double camDirX = -cos(-camera->pitch) * cos(-camera->yaw);
-	double camDirY = -cos(-camera->pitch) * sin(-camera->yaw);
+	double camDirX = -cos(camera->pitch) * cos(camera->yaw);
+	double camDirY = -cos(camera->pitch) * sin(camera->yaw);
 	double camDirLen = sqrt(camDirX * camDirX + camDirY * camDirY);
 	camDirX /= camDirLen;
 	camDirY /= camDirLen;
@@ -169,6 +170,15 @@ void processInput(GLFWwindow *window, struct Camera * const camera)
 
 	camera->posX += deltaX;
 	camera->posY += deltaY;
+
+	double upwardMovement = 0;
+
+	if(glfwGetKey(window, GLFW_KEY_SPACE))
+		upwardMovement += MOVE_SPEED;
+	if(glfwGetKey(window, GLFW_KEY_LEFT_SHIFT))
+		upwardMovement -= MOVE_SPEED;
+	
+	camera->posZ += upwardMovement;
 }
 
 void render(GLFWwindow *window, const uint32_t computeProgram, const uint32_t renderProgram, uint32_t vao, const struct Camera cam)
@@ -285,14 +295,9 @@ int32_t main()
 	// Set shader uniforms
 	glUseProgram(computeProgram);
 
-	glUniform1f(glGetUniformLocation(computeProgram, "camFOV"), PI / 2);
-	glUniform3f(glGetUniformLocation(computeProgram, "camDir"), -1.0f, 0.0f, 0.0f);
+	generateModel();
 
-	glUniform3f(glGetUniformLocation(computeProgram, "triPoint0"), 1.0f, -0.5f, 0.5f);
-	glUniform3f(glGetUniformLocation(computeProgram, "triPoint1"), 1.0f, -0.5f, -0.5f);
-	glUniform3f(glGetUniformLocation(computeProgram, "triPoint2"), 1.0f, 0.5f, -0.5f);
-
-	struct Camera cam = {WINDOW_WIDTH, WINDOW_HEIGHT, PI / 2, 0, 0, 0, 0, 0};
+	struct Camera cam = {WINDOW_WIDTH, WINDOW_HEIGHT, PI / 4, 0, 0, 0, 0, 0};
 	glfwSetWindowUserPointer(window, &cam);
 
 	// Render loop
